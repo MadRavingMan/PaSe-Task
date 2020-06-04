@@ -1,8 +1,11 @@
-const inputClientsOperations = require('../input.json');
-const commissionFeesOptions = require('./constants/commissionFees.json');
-let weekAmountUsage = [];
+let allPaymentsHistory = [];
 
-const commissionFees = inputClientsOperations.forEach( clientOperation => commissionFeeCounter(clientOperation));
+function commissionFees( file ){
+
+    const inputClientsOperations = require(`../${file}`);
+    inputClientsOperations.forEach( clientOperation => commissionFeeCounter(clientOperation));
+
+}
 
 function commissionFeeCounter( data ){
     const operationDate = data.date;
@@ -10,42 +13,65 @@ function commissionFeeCounter( data ){
     const userType = data.user_type.toLowerCase();
     const operationType = data.type.toLowerCase();
     const operationAmount = data.operation.amount;
-    let result = 0;
+    const commissionFeesOptions = require('./constants/commissionFees.json');
+    const percentMultiplier = 0.01;
+
 
     if (operationType === 'cash_in'){
         const commissionFeeInPercents = commissionFeesOptions.cash_in.percents;
         const commissionFeeInMaxAmount = commissionFeesOptions.cash_in.max.amount;
 
         const commissionFeeIn = operationAmount * commissionFeeInPercents;
-        const commissionFeeInRoundUp = Math.ceil(commissionFeeIn) * 0.01;
+        const commissionFeeInRoundUp = Math.ceil(commissionFeeIn) * percentMultiplier;
         const finalCommissionFeeIn = commissionFeeInRoundUp < commissionFeeInMaxAmount ? commissionFeeInRoundUp : commissionFeeInMaxAmount;
         console.log(finalCommissionFeeIn.toFixed(2));
 
     } else if (operationType === 'cash_out'){
-        // Default commission fee - 0.3% from cash out amount.
-        // 1000.00 EUR per week (from monday to sunday) is free of charge.
-        // If total cash out amount is exceeded - commission is calculated only from exceeded amount
-        // (that is, for 1000.00 EUR there is still no commission fee).
+
         if (userType === 'natural'){
             const commissionFeeOutLegPercents = commissionFeesOptions.cash_out_legal.percents;
             const commissionFeeOutLegWeekAmount = commissionFeesOptions.cash_out_legal.week_limit.amount;
             
             const weekNo = getWeekNo( operationDate );
+            const paymentHistory = allPaymentsHistory.find( user => user.weekNo === weekNo && user.user_id === operationUser);
+            
+            if (!paymentHistory){
+                data.weekNo = weekNo;
+                data.operation.amount = operationAmount - commissionFeeOutLegWeekAmount;
+                allPaymentsHistory.push(data);
 
-            console.log('nebaigta');
-        };
+                data.operation.amount > 0 ? commissionFeeOutLegal(data.operation.amount) : commissionFeeOutLegal(0);
+            
+            }else if (paymentHistory.operation.amount > 0){
+                const paymentHistoryIndex = allPaymentsHistory.findIndex( user => user.weekNo === weekNo && user.user_id === operationUser);
+                const sumPaymentHistory = allPaymentsHistory[paymentHistoryIndex].operation.amount + operationAmount;
+                allPaymentsHistory[paymentHistoryIndex].operation.amount = sumPaymentHistory;
 
-        if (userType === 'juridical'){
+                commissionFeeOutLegal( operationAmount );
+            
+            }else if (paymentHistory.operation.amount < 0){
+                const amountToTax = operationAmount + paymentHistory.operation.amount;
+
+                amountToTax > 0 ? commissionFeeOutLegal(operationAmount) : commissionFeeOutLegal(0);
+            }
+        
+            function commissionFeeOutLegal ( taxedOperationAmount ) {
+                const commissionFeeOutLegal = taxedOperationAmount * commissionFeeOutLegPercents;
+                const commissionFeeOutLegalRoundUp = Math.ceil(commissionFeeOutLegal) * percentMultiplier;
+                console.log(commissionFeeOutLegalRoundUp.toFixed(2));
+            }
+
+        } else if (userType === 'juridical'){
             const commissionFeeOutJurPercents = commissionFeesOptions.cash_out_juridical.percents;
             const commissionFeeOutJurMinAmount = commissionFeesOptions.cash_out_juridical.min.amount;
 
             const commissionFeeOutJuridical = operationAmount * commissionFeeOutJurPercents;
-            const commissionFeeOutJuridicalRoundUp = Math.ceil(commissionFeeOutJuridical) * 0.01;
+            const commissionFeeOutJuridicalRoundUp = Math.ceil(commissionFeeOutJuridical) * percentMultiplier;
             const finalCommissionFeeOutJuridical = commissionFeeOutJuridicalRoundUp < commissionFeeOutJurMinAmount ? commissionFeeOutJurMinAmount : commissionFeeOutJuridicalRoundUp;
             console.log(finalCommissionFeeOutJuridical.toFixed(2));
-        };
-    } else {
-       console.log('Try again (01)', data);
+        } else {
+            console.log('Try again (01)', data);
+        }
     }
 }
 
@@ -59,3 +85,5 @@ function getWeekNo( date ){
     const wk = weeknumber.weekNumber(new Date(yyyy, (mm-1), dd, 12));
     return wk;
 }
+
+exports.commissionFees = commissionFees;

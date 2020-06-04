@@ -1,48 +1,61 @@
-const pradinis = { 
-    "date": "2016-01-05",
-    "user_id": 1,
-    "user_type": "natural",
-    "type": "cash_in",
-    "operation": { 
-        "amount": 200.00,
-        "currency": "EUR" 
-    }
-};
-
-const juridinis = {
-    "date": "2016-01-06",
-    "user_id": 2,
-    "user_type": "juridical",
-    "type": "cash_out",
-    "operation": {
-        "amount": 300.00, 
-        "currency": "EUR" 
-    }
-};
-
-const operationType = pradinis.type.toLowerCase();
-const userType = pradinis.user_type.toLowerCase();
-const operationAmount = pradinis.operation.amount;
+const inputClientsOperations = require('../input.json');
 const commissionFeesOptions = require('./constants/commissionFees.json');
+let weekAmountUsage = [];
 
-console.log('option', commissionFeesOptions);
+const commissionFees = inputClientsOperations.forEach( clientOperation => commissionFeeCounter(clientOperation));
 
-function commissionFeeCounter(){
+function commissionFeeCounter( data ){
+    const operationDate = data.date;
+    const operationUser = data.user_id;
+    const userType = data.user_type.toLowerCase();
+    const operationType = data.type.toLowerCase();
+    const operationAmount = data.operation.amount;
+    let result = 0;
+
     if (operationType === 'cash_in'){
-        const commissionFeeIn = operationAmount * commissionFeesOptions.cash_in.percents * 0.01;
-        const finalCommissionFeeIn = commissionFeeIn < commissionFeesOptions.cash_in.max.amount ? commissionFeeIn : maxInFeeAmount;
-        return finalCommissionFeeIn;
-    }
+        const commissionFeeInPercents = commissionFeesOptions.cash_in.percents;
+        const commissionFeeInMaxAmount = commissionFeesOptions.cash_in.max.amount;
 
-    if (operationType === 'cash_out'){
+        const commissionFeeIn = operationAmount * commissionFeeInPercents;
+        const commissionFeeInRoundUp = Math.ceil(commissionFeeIn) * 0.01;
+        const finalCommissionFeeIn = commissionFeeInRoundUp < commissionFeeInMaxAmount ? commissionFeeInRoundUp : commissionFeeInMaxAmount;
+        console.log(finalCommissionFeeIn.toFixed(2));
+
+    } else if (operationType === 'cash_out'){
+        // Default commission fee - 0.3% from cash out amount.
+        // 1000.00 EUR per week (from monday to sunday) is free of charge.
+        // If total cash out amount is exceeded - commission is calculated only from exceeded amount
+        // (that is, for 1000.00 EUR there is still no commission fee).
         if (userType === 'natural'){
+            const commissionFeeOutLegPercents = commissionFeesOptions.cash_out_legal.percents;
+            const commissionFeeOutLegWeekAmount = commissionFeesOptions.cash_out_legal.week_limit.amount;
+            
+            const weekNo = getWeekNo( operationDate );
 
-        }
+            console.log('nebaigta');
+        };
 
+        if (userType === 'juridical'){
+            const commissionFeeOutJurPercents = commissionFeesOptions.cash_out_juridical.percents;
+            const commissionFeeOutJurMinAmount = commissionFeesOptions.cash_out_juridical.min.amount;
+
+            const commissionFeeOutJuridical = operationAmount * commissionFeeOutJurPercents;
+            const commissionFeeOutJuridicalRoundUp = Math.ceil(commissionFeeOutJuridical) * 0.01;
+            const finalCommissionFeeOutJuridical = commissionFeeOutJuridicalRoundUp < commissionFeeOutJurMinAmount ? commissionFeeOutJurMinAmount : commissionFeeOutJuridicalRoundUp;
+            console.log(finalCommissionFeeOutJuridical.toFixed(2));
+        };
     } else {
-       return console.log('Try again (01)');
+       console.log('Try again (01)', data);
     }
-
 }
 
-module.exports.commissionFeeCounter = commissionFeeCounter;
+function getWeekNo( date ){
+    const dateToNumber = date.split('-');
+    const yyyy = parseInt(dateToNumber[0]);
+    const mm = parseInt(dateToNumber[1]);
+    const dd = parseInt(dateToNumber[2]);
+
+    const weeknumber = require('weeknumber');
+    const wk = weeknumber.weekNumber(new Date(yyyy, (mm-1), dd, 12));
+    return wk;
+}

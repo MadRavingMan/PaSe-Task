@@ -2,8 +2,17 @@ let allPaymentsHistory = [];
 
 function commissionFees( file ){
 
-    const inputClientsOperations = require(`../${file}`);
-    inputClientsOperations.forEach( clientOperation => commissionFeeCounter(clientOperation));
+    try{
+        const inputClientsOperations = require(`../${file}`);
+        if (!inputClientsOperations || inputClientsOperations.length === 0){
+            return console.log('try again (02)', inputClientsOperations)
+        }
+    
+        inputClientsOperations.forEach( clientOperation => commissionFeeCounter(clientOperation));
+    }
+    catch(err){
+        console.log(err);
+    }
 
 }
 
@@ -44,8 +53,7 @@ function commissionFeeCounter( data ){
             
             }else if (paymentHistory.operation.amount > 0){
                 const paymentHistoryIndex = allPaymentsHistory.findIndex( user => user.weekNo === weekNo && user.user_id === operationUser);
-                const sumPaymentHistory = allPaymentsHistory[paymentHistoryIndex].operation.amount + operationAmount;
-                allPaymentsHistory[paymentHistoryIndex].operation.amount = sumPaymentHistory;
+                allPaymentsHistory[paymentHistoryIndex].operation.amount += operationAmount;
 
                 commissionFeeOutLegal( operationAmount );
             
@@ -81,9 +89,9 @@ function getWeekNo( date ){
     const mm = parseInt(dateToNumber[1]);
     const dd = parseInt(dateToNumber[2]);
 
-    const weeknumber = require('weeknumber');
-    const wk = weeknumber.weekNumber(new Date(yyyy, (mm-1), dd, 12));
-    return wk;
+    const weekNumber = require('weeknumber');
+    const weekNo = weekNumber.weekNumber(new Date(yyyy, (mm-1), dd, 12));
+    return weekNo;
 }
 
 exports.commissionFees = commissionFees;

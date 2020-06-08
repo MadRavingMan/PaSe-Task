@@ -1,14 +1,15 @@
-let allPaymentsHistory = [];
+let legalPaymentsHistory = [];
 
 function commissionFees( file ){
 
     try{
         const inputClientsOperations = require(`../${file}`);
         if (!inputClientsOperations || inputClientsOperations.length === 0){
-            return console.log('try again (02)', inputClientsOperations)
+            return console.log('try again (02)', inputClientsOperations);
         }
     
-        inputClientsOperations.forEach( clientOperation => commissionFeeCounter(clientOperation));
+        inputClientsOperations.forEach( clientOperation => console.log(commissionFeeCounter(clientOperation)));
+
     }
     catch(err){
         console.log(err);
@@ -25,6 +26,8 @@ function commissionFeeCounter( data ){
     const commissionFeesOptions = require('./constants/commissionFees.json');
     const percentMultiplier = 0.01;
 
+    if (data.operation.currency.toUpperCase() != 'EUR') return 'not calculating in other currency, than EUR';
+
 
     if (operationType === 'cash_in'){
         const commissionFeeInPercents = commissionFeesOptions.cash_in.percents;
@@ -33,40 +36,44 @@ function commissionFeeCounter( data ){
         const commissionFeeIn = operationAmount * commissionFeeInPercents;
         const commissionFeeInRoundUp = Math.ceil(commissionFeeIn) * percentMultiplier;
         const finalCommissionFeeIn = commissionFeeInRoundUp < commissionFeeInMaxAmount ? commissionFeeInRoundUp : commissionFeeInMaxAmount;
-        console.log(finalCommissionFeeIn.toFixed(2));
+        
+        return finalCommissionFeeIn.toFixed(2);
 
     } else if (operationType === 'cash_out'){
-
         if (userType === 'natural'){
+            
             const commissionFeeOutLegPercents = commissionFeesOptions.cash_out_legal.percents;
             const commissionFeeOutLegWeekAmount = commissionFeesOptions.cash_out_legal.week_limit.amount;
             
             const weekNo = getWeekNo( operationDate );
-            const paymentHistory = allPaymentsHistory.find( user => user.weekNo === weekNo && user.user_id === operationUser);
+            const paymentHistory = legalPaymentsHistory.find( user => user.weekNo === weekNo && user.user_id === operationUser);
             
             if (!paymentHistory){
+
                 data.weekNo = weekNo;
                 data.operation.amount = operationAmount - commissionFeeOutLegWeekAmount;
-                allPaymentsHistory.push(data);
+                legalPaymentsHistory.push(data);
 
-                data.operation.amount > 0 ? commissionFeeOutLegal(data.operation.amount) : commissionFeeOutLegal(0);
+                return data.operation.amount > 0 ? commissionFeeOutLegal(data.operation.amount) : commissionFeeOutLegal(0);
             
             }else if (paymentHistory.operation.amount > 0){
-                const paymentHistoryIndex = allPaymentsHistory.findIndex( user => user.weekNo === weekNo && user.user_id === operationUser);
-                allPaymentsHistory[paymentHistoryIndex].operation.amount += operationAmount;
+                const paymentHistoryIndex = legalPaymentsHistory.findIndex( user => user.weekNo === weekNo && user.user_id === operationUser);
+                legalPaymentsHistory[paymentHistoryIndex].operation.amount += operationAmount;
 
-                commissionFeeOutLegal( operationAmount );
+                return commissionFeeOutLegal( operationAmount );
             
-            }else if (paymentHistory.operation.amount < 0){
+            }else if (paymentHistory.operation.amount <= 0){
                 const amountToTax = operationAmount + paymentHistory.operation.amount;
 
-                amountToTax > 0 ? commissionFeeOutLegal(operationAmount) : commissionFeeOutLegal(0);
+                return amountToTax > 0 ? commissionFeeOutLegal(operationAmount) : commissionFeeOutLegal(0);
+            }else{
+                console.log('wrong data: ', data);
             }
         
             function commissionFeeOutLegal ( taxedOperationAmount ) {
                 const commissionFeeOutLegal = taxedOperationAmount * commissionFeeOutLegPercents;
                 const commissionFeeOutLegalRoundUp = Math.ceil(commissionFeeOutLegal) * percentMultiplier;
-                console.log(commissionFeeOutLegalRoundUp.toFixed(2));
+                return commissionFeeOutLegalRoundUp.toFixed(2);
             }
 
         } else if (userType === 'juridical'){
@@ -76,10 +83,14 @@ function commissionFeeCounter( data ){
             const commissionFeeOutJuridical = operationAmount * commissionFeeOutJurPercents;
             const commissionFeeOutJuridicalRoundUp = Math.ceil(commissionFeeOutJuridical) * percentMultiplier;
             const finalCommissionFeeOutJuridical = commissionFeeOutJuridicalRoundUp < commissionFeeOutJurMinAmount ? commissionFeeOutJurMinAmount : commissionFeeOutJuridicalRoundUp;
-            console.log(finalCommissionFeeOutJuridical.toFixed(2));
+            return finalCommissionFeeOutJuridical.toFixed(2);
+
         } else {
-            console.log('Try again (01)', data);
+            console.log('unable to resolve user type', data);
         }
+        
+    }else{
+        console.log('unable to resolve operation type. ', data);
     }
 }
 
@@ -90,8 +101,10 @@ function getWeekNo( date ){
     const dd = parseInt(dateToNumber[2]);
 
     const weekNumber = require('weeknumber');
-    const weekNo = weekNumber.weekNumber(new Date(yyyy, (mm-1), dd, 12));
+    const weekNo = weekNumber.weekNumber(new Date(yyyy, mm-1, dd, 12));
     return weekNo;
 }
 
 exports.commissionFees = commissionFees;
+exports.commissionFeeCounter = commissionFeeCounter;
+exports.getWeekNo = getWeekNo;

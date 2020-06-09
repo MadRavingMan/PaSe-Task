@@ -37,7 +37,7 @@ test('should output cash out natural users fees', () => {
     expect(calculatedNatural4).toBe('0.00');
 });
 
-test('should output cash in fee', () => {
+test('should output cash in fee for juridical persons', () => {
     const juridicalUser1 = { "date": "2016-01-06", "user_id": 1, "user_type": "juridical", "type": "cash_out"
                         , "operation": { "amount": 10, "currency": "EUR" } };
     const juridicalUser2 = { "date": "2016-01-06", "user_id": 1, "user_type": "juridical", "type": "cash_out"
